@@ -90,25 +90,25 @@ pipeline {
             }
         }
 
-        stage('Docker Build & Push') {
+   stage('Docker Build & Push') {
             steps {
                 echo "Building Docker image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}"
                 script {
-                    // Build container image using the Dockerfile
-                    def customImage = docker.build("${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}", "-f Dockerfile .")
-                    
-                    // Tag image as latest as well
-                    sh "docker tag ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest"
-                    
-                    // Authenticate and push images to Docker Hub
+                    // Wrap BOTH the build and the push inside the authenticated registry block
                     docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_HUB_CREDS_ID}") {
+                        
+                        // 1. Build the image INSIDE the registry scope
+                        def customImage = docker.build("${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}", "-f Dockerfile .")
+                        
+                        // 2. Push the tagged version (e.g., :12)
                         customImage.push()
+                        
+                        // 3. Push the latest tag safely using the native plugin method
                         customImage.push("latest")
                     }
                 }
             }
         }
-
         stage('GitOps Manifest Update') {
             steps {
                 echo 'Updating image tag in Manifest Repository for GitOps deployment...'
