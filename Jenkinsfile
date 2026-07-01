@@ -4,11 +4,11 @@ pipeline {
     environment {
         // Docker registry parameters
         DOCKER_REGISTRY      = 'docker.io'
-        DOCKER_REPO          = 'yourdockerhubusername/devops-showcase-app'
+        DOCKER_REPO          = 'omarwazery'/devops-showcase-app
         DOCKER_IMAGE_NAME    = "${DOCKER_REGISTRY}/${DOCKER_REPO}"
         
         // GitOps Manifest repository parameters
-        MANIFESTS_GIT_REPO   = 'github.com/yourgithubusername/gitops-manifests-repo.git'
+        MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/enterprise-gitops-manifests.git'
         
         // Tool identifiers in Jenkins
         MAVEN_TOOL           = 'Maven3'
@@ -29,6 +29,7 @@ pipeline {
         timeout(time: 1, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
         disableConcurrentBuilds()
+        ansiColor('xterm')
     }
 
     stages {
@@ -83,6 +84,8 @@ pipeline {
                 always {
                     // Record test results inside Jenkins reports
                     junit 'target/surefire-reports/*.xml'
+                    // Publish JaCoCo coverage reports
+                    jacoco execPattern: 'target/jacoco.exec', classPattern: '**/classes', sourcePattern: 'src/main/java'
                 }
             }
         }
