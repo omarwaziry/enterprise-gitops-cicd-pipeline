@@ -33,7 +33,7 @@ class DevopsProjectApplicationTests {
     void indexReturnsHtmlDashboard() {
         String response = this.restTemplate.getForObject("http://localhost:" + port + "/", String.class);
         assertThat(response).contains("GitOps Deployment Dashboard");
-        assertThat(response).contains("Live &amp; Synced");
+        assertThat(response).contains("Live & Synced");
     }
 
     @SuppressWarnings("unchecked")

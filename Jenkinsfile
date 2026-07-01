@@ -83,8 +83,6 @@ pipeline {
                 always {
                     // Record test results inside Jenkins reports
                     junit 'target/surefire-reports/*.xml'
-                    // Publish JaCoCo coverage reports
-                    jacoco execPattern: 'target/jacoco.exec', classPattern: '**/classes', sourcePattern: 'src/main/java'
                 }
             }
         }
