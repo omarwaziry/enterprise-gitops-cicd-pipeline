@@ -6,9 +6,26 @@ import java.util.HashMap;
 import java.util.Map;
 import java.time.Instant;
 
+/**
+ * REST controller serving the GitOps Deployment Dashboard (HTML)
+ * and the JSON-based service information APIs.
+ *
+ * This dashboard provides visual tracking for each stage of the CI/CD pipeline,
+ * including Jenkins compilation, SonarQube quality checks, Docker Hub registry uploads,
+ * Argo CD GitOps synchronization, and the final Kubernetes pod runtime.
+ *
+ * @author DevOps Engineer
+ * @version 1.0.0
+ */
 @RestController
 public class HomeController {
 
+    /**
+     * Serves the main GitOps Deployment Dashboard UI.
+     * Renders a highly responsive HTML dashboard showing live deployment states.
+     *
+     * @return HTML string content of the dashboard
+     */
     @GetMapping(value = "/", produces = "text/html")
     public String index() {
         return "<!DOCTYPE html>\n" +
@@ -370,6 +387,12 @@ public class HomeController {
                 "</html>";
     }
 
+    /**
+     * API endpoint returning metadata details about the running microservice instance.
+     * Serves structured JSON data demonstrating microservice runtime state.
+     *
+     * @return Map containing status, framework, version, and component health status
+     */
     @GetMapping(value = "/api/info", produces = "application/json")
     public Map<String, Object> info() {
         Map<String, Object> info = new HashMap<>();

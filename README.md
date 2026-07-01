@@ -42,6 +42,54 @@ This system divides the responsibilities between continuous integration (CI) and
 
 ---
 
+## 📸 Pipeline & Deployment Screenshots
+
+Here is a visual walk-through of the live, working DevSecOps environment and pipeline stages:
+
+### 1. GitOps Deployment Dashboard (Microservice Web UI)
+The dynamic web application deployed inside the Kubernetes pod, reflecting the current live version and stage progression status.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20190339.png" alt="GitOps Deployment Dashboard Web UI" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 2. Jenkins CI Dashboard
+The continuous integration manager showing the successful pipeline run (`#24`), JUnit test pass trend, and the integrated SonarQube Quality Gate status.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20190017.png" alt="Jenkins CI Dashboard" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 3. SonarQube Code Security analysis (SAST)
+Static application security testing verifying clean code metrics, 0 bugs, 0 vulnerabilities, and passing the customized quality gate.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20190130.png" alt="SonarQube Code Security analysis" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 4. Argo CD GitOps Synchronization
+Argo CD mapping changes from the manifests repository and reconciling the Kubernetes cluster state automatically.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20185855.png" alt="Argo CD GitOps Synchronization" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 5. Docker Hub Container Registry
+Docker Hub showing the automated container image tags built and pushed by the Jenkins CI runner.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20190305.png" alt="Docker Hub Container Registry" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 6. CentOS Dev Environment CLI
+VM terminal status displaying the active minikube pods and the running local DevSecOps infrastructure.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20190524.png" alt="CentOS Dev Environment CLI" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+### 7. Automated Tag Update Execution
+Jenkins console logs proving the successful container compilation, testing, registry pushing, and manifest auto-commit.
+<p align="center">
+  <img src="./images/Screenshot%202026-07-01%20185954.png" alt="Automated Tag Update Execution" width="900" style="border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"/>
+</p>
+
+---
+
 ## 🛠️ Repository Structures
 
 ### 1. Application Source Code (`app-source-repo/`)

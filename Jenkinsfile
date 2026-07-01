@@ -2,10 +2,12 @@ pipeline {
     agent any
 
     environment {
-        // Docker registry parameters
+        // Docker Registry/Repository (Format: username/repository-name)
+        // REPLACE 'omarwazery/devops-showcase-app' with your own Docker Hub repository when cloning
         DOCKER_REPO          = 'omarwazery/devops-showcase-app'
         
-        // GitOps Manifest repository parameters
+        // GitOps Manifest repository parameters (Format: github.com/username/manifests-repo.git)
+        // REPLACE 'omarwaziry/enterprise-gitops-manifests.git' with your own manifests repository
         MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/enterprise-gitops-manifests.git'
         
         // Tool identifiers in Jenkins
@@ -88,21 +90,19 @@ pipeline {
             }
         }
 
-   stage('Docker Build & Push') {
+        stage('Docker Build & Push') {
             steps {
                 echo "Building Docker image: ${DOCKER_REPO}:${BUILD_NUMBER}"
                 script {
-                    // Use the exact credentials ID variable you configured in Jenkins
+                    // Build container image using the custom Docker CLI inside Jenkins container (via host socket)
                     docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDS_ID) {
-
                         def image = docker.build("${DOCKER_REPO}:${BUILD_NUMBER}")
-
                         image.push()
                         image.push("latest")
                     }
                 }
             }
-        } 
+        }
         stage('GitOps Manifest Update') {
             steps {
                 echo 'Updating image tag in Manifest Repository for GitOps deployment...'

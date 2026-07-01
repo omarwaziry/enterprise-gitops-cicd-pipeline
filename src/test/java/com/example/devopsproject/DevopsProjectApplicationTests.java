@@ -12,6 +12,10 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Integration and unit tests for the Spring Boot application.
+ * Verifies context loading, dashboard html rendering, and info json responses.
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class DevopsProjectApplicationTests {
 
@@ -24,18 +28,30 @@ class DevopsProjectApplicationTests {
     @Autowired
     private HomeController homeController;
 
+    /**
+     * Verifies that the application context loads successfully and
+     * the HomeController bean is instantiated.
+     */
     @Test
     void contextLoads() {
         assertThat(homeController).isNotNull();
-    }
-
+     }
+ 
+    /**
+     * Verifies that the root path endpoint returns the HTML dashboard UI
+     * containing expected header and status indicator texts.
+     */
     @Test
     void indexReturnsHtmlDashboard() {
         String response = this.restTemplate.getForObject("http://localhost:" + port + "/", String.class);
         assertThat(response).contains("GitOps Deployment Dashboard");
         assertThat(response).contains("Live & Synced");
     }
-
+ 
+    /**
+     * Verifies that the /api/info endpoint returns a JSON payload
+     * indicating a successful health check status.
+     */
     @SuppressWarnings("unchecked")
     @Test
     void infoReturnsJsonDetails() {
