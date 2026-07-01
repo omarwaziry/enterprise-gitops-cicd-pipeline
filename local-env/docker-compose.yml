@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # ==========================================
+  # Jenkins Continuous Integration Server
+  # ==========================================
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: jenkins-ci
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    environment:
+      # Restrict JVM Heap to leave room for other host services
+      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError
+    volumes:
+      - jenkins_data:/var/jenkins_home
+      # Mount host docker socket to enable Docker-in-Docker or host-based builds
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+        reservations:
+          memory: 512M
+
+  # ==========================================
+  # SonarQube Static Application Security Scanner
+  # ==========================================
+  sonarqube:
+    image: sonarqube:10.5.1-community
+    container_name: sonarqube-scanner
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      # Optimize JVM heap allocations for SonarQube's three internal processes:
+      # 1. Web / UI Process
+      # 2. Search / Elasticsearch Process
+      # 3. CE / Compute Engine Process
+      - SONAR_WEB_JAVAADDITIONALOPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+      - SONAR_SEARCH_JAVAADDITIONALOPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+      - SONAR_CE_JAVAADDITIONALOPTS=-Xms256m -Xmx512m -XX:+UseG1GC
+    ulimits:
+      nofile:
+        soft: 131072
+        hard: 131072
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+        reservations:
+          memory: 1024M
+
+volumes:
+  jenkins_data:
+    driver: local
+  sonarqube_data:
+    driver: local
+  sonarqube_extensions:
+    driver: local
+  sonarqube_logs:
+    driver: local

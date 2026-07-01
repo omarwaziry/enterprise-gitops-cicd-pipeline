@@ -63,6 +63,8 @@ This system divides the responsibilities between continuous integration (CI) and
 
 Follow this guide to spin up this infrastructure locally or on a cloud virtual machine.
 
+
+
 ### Part 1: Prerequisites
 Ensure you have access to:
 * A Kubernetes Cluster (e.g. Minikube, Kind, EKS)
@@ -138,3 +140,23 @@ This project showcases several advanced DevOps practices:
   * The CD controller (Argo CD) operates pull-based deployments, reducing security privileges required on the Jenkins server (Jenkins needs zero access to the Kubernetes cluster API).
 * **Automated Rollback & Self-Healing**:
   * Argo CD configuration includes `prune: true` and `selfHeal: true`. Any manual changes made to the cluster will be instantly overwritten with the source-of-truth defined in Git.
+
+---
+
+## 🎁 Bonus: Local Dev VM Lab Setup (Low-Memory Optimized)
+
+For developers looking to run this entire DevSecOps environment locally on a resource-constrained VM (e.g., **8GB RAM, 2 CPUs** running Ubuntu, Debian, CentOS, RHEL, or Fedora), we provide automation resources under the [local-env](./local-env) directory:
+
+* **[docker-compose.yml](./local-env/docker-compose.yml)**: Runs Jenkins and SonarQube on the host Docker engine with customized JVM heap constraints (`-Xmx512m` limits) to prevent system OOM errors.
+* **[setup-devsecops-env.sh](./local-env/setup-devsecops-env.sh)**: A cross-distro automation script that:
+  1. Configures host elasticsearch kernel maps (`vm.max_map_count=524288`).
+  2. Dynamically opens network ports `8080`, `9000`, `80`, and `443` depending on the active firewall detected (UFW or firewalld).
+  3. Launches Minikube container cluster with a strict limit of `2.5GB` RAM.
+  4. Deploys the Argo CD controller in the cluster.
+
+To configure and run the local lab setup:
+```bash
+cd local-env
+chmod +x setup-devsecops-env.sh
+sudo ./setup-devsecops-env.sh
+```
