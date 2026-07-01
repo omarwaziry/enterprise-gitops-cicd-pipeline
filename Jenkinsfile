@@ -145,19 +145,19 @@ pipeline {
     post {
         success {
             echo 'Pipeline completed successfully. Sending Slack notification...'
-            slackSend(
-                channel: "${SLACK_CHANNEL}",
-                color: '#00FF00',
-                message: "SUCCESSFUL: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] completed successfully.\nView changes: ${env.BUILD_URL}"
-            )
+            // slackSend(
+            //     channel: "${SLACK_CHANNEL}",
+            //     color: '#00FF00',
+            //     message: "SUCCESSFUL: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] completed successfully.\nView changes: ${env.BUILD_URL}"
+            // )
         }
         failure {
             echo 'Pipeline failed. Sending alerts...'
-            slackSend(
-                channel: "${SLACK_CHANNEL}",
-                color: '#FF0000',
-                message: "FAILED: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] failed during build stages.\nVerify error logs at: ${env.BUILD_URL}"
-            )
+            // slackSend(
+            //     channel: "${SLACK_CHANNEL}",
+            //     color: '#FF0000',
+            //     message: "FAILED: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] failed during build stages.\nVerify error logs at: ${env.BUILD_URL}"
+            // )
         }
     }
 }
