@@ -94,21 +94,22 @@ pipeline {
             steps {
                 echo "Building Docker image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}"
                 script {
-                    // Wrap BOTH the build and the push inside the authenticated registry block
+                    // Use the exact credentials ID variable you configured in Jenkins
                     docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_HUB_CREDS_ID}") {
                         
-                        // 1. Build the image INSIDE the registry scope
+                        // 1. Build the image inside the authenticated scope
+                        // Make sure DOCKER_IMAGE_NAME is just 'omarwazery/devops-showcase-app' (no docker.io/ prefix)
                         def customImage = docker.build("${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}", "-f Dockerfile .")
                         
-                        // 2. Push the tagged version (e.g., :12)
+                        // 2. Push the build number tag (:15)
                         customImage.push()
                         
-                        // 3. Push the latest tag safely using the native plugin method
+                        // 3. Push the latest tag using the native plugin method
                         customImage.push("latest")
                     }
                 }
             }
-        }
+        } 
         stage('GitOps Manifest Update') {
             steps {
                 echo 'Updating image tag in Manifest Repository for GitOps deployment...'
