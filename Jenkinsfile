@@ -3,9 +3,7 @@ pipeline {
 
     environment {
         // Docker registry parameters
-        DOCKER_REGISTRY      = 'docker.io'
         DOCKER_REPO          = 'omarwazery/devops-showcase-app'
-        DOCKER_IMAGE_NAME    = "${DOCKER_REGISTRY}/${DOCKER_REPO}"
         
         // GitOps Manifest repository parameters
         MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/gitops-manifests-repo.git'
@@ -92,20 +90,15 @@ pipeline {
 
    stage('Docker Build & Push') {
             steps {
-                echo "Building Docker image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}"
+                echo "Building Docker image: ${DOCKER_REPO}:${BUILD_NUMBER}"
                 script {
                     // Use the exact credentials ID variable you configured in Jenkins
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_HUB_CREDS_ID}") {
-                        
-                        // 1. Build the image inside the authenticated scope
-                        // Make sure DOCKER_IMAGE_NAME is just 'omarwazery/devops-showcase-app' (no docker.io/ prefix)
-                        def customImage = docker.build("${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}", "-f Dockerfile .")
-                        
-                        // 2. Push the build number tag (:15)
-                        customImage.push()
-                        
-                        // 3. Push the latest tag using the native plugin method
-                        customImage.push("latest")
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDS_ID) {
+
+                        def image = docker.build("${DOCKER_REPO}:${BUILD_NUMBER}")
+
+                        image.push()
+                        image.push("latest")
                     }
                 }
             }
@@ -124,7 +117,7 @@ pipeline {
                         
                         dir('temp_manifests') {
                             // Update the image in deployment.yaml. Matches: "image: group/app:tag" and replaces the tag
-                            sh "sed -i 's|image: .*/devops-showcase-app:.*|image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}|g' deployment.yaml"
+                            sh "sed -i 's|image: .*/devops-showcase-app:.*|image: ${DOCKER_REPO}:${BUILD_NUMBER}|g' deployment.yaml"
                             
                             // Check if changes exist before committing to avoid empty commits
                             def status = sh(script: 'git status --porcelain', returnStdout: true).trim()
