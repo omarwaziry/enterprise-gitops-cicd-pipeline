@@ -4,11 +4,11 @@ pipeline {
     environment {
         // Docker registry parameters
         DOCKER_REGISTRY      = 'docker.io'
-        DOCKER_REPO          = 'omarwazery'/devops-showcase-app
+        DOCKER_REPO          = 'omarwazery/devops-showcase-app'
         DOCKER_IMAGE_NAME    = "${DOCKER_REGISTRY}/${DOCKER_REPO}"
         
         // GitOps Manifest repository parameters
-        MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/enterprise-gitops-manifests.git'
+        MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/gitops-manifests-repo.git'
         
         // Tool identifiers in Jenkins
         MAVEN_TOOL           = 'Maven3'
