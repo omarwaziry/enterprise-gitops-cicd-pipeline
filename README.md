@@ -173,7 +173,7 @@ Ensure you have access to:
 
 ---
 
-## 💎 Portfolio Highlights (Recruiter Key Takeaways)
+## 💎 Portfolio Highlights
 
 This project showcases several advanced DevOps practices:
 
