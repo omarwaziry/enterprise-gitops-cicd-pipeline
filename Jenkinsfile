@@ -113,7 +113,7 @@ pipeline {
                         sh 'git config --global user.name "Jenkins Automation Pipeline"'
                         
                         // Clone the manifests repository using the checkout token
-                        sh "git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@${MANIFESTS_GIT_REPO} temp_manifests"
+                        sh "git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@${enterprise-gitops-manifests} temp_manifests"
                         
                         dir('temp_manifests') {
                             // Update the image in deployment.yaml. Matches: "image: group/app:tag" and replaces the tag
