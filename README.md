@@ -11,7 +11,7 @@
 This repository is the **CI half** of a two-repo GitOps pipeline. It contains the Spring Boot application source, a hardened multi-stage Dockerfile, and a declarative Jenkinsfile that drives every stage from commit to container registry to GitOps manifest update.
 
 The **CD half** (Kubernetes manifests, Argo CD config, monitoring stack) lives here:
-**[enterprise-gitops-manifests](https://github.com/your-username/your-gitops-manifests-repo)**
+**[enterprise-gitops-manifests](https://github.com/omarwaziry/enterprise-gitops-manifests)**
 
 ---
 
