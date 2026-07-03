@@ -1,47 +1,61 @@
-# ==========================================
-# Stage 1: Build the Spring Boot application
-# ==========================================
+# =============================================================================
+# Stage 1 — Build
+#
+# Uses the full JDK + Maven image to compile the source and produce a fat JAR.
+# This stage is discarded after the build; none of its tools or source code
+# end up in the final image.
+#
+# Dependency layer is copied and resolved before the source code so Docker
+# can cache it. Subsequent builds only re-download deps when pom.xml changes.
+# =============================================================================
 FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
 
 WORKDIR /build
 
-# Copy only the pom.xml first to cache dependencies (improves build speed in docker caches)
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy the source code and compile the jar file
 COPY src ./src
 RUN mvn package -DskipTests -B
 
-# ==========================================
-# Stage 2: Create runtime environment (JRE)
-# ==========================================
+
+# =============================================================================
+# Stage 2 — Runtime
+#
+# Starts from a minimal JRE-only image. No JDK, no Maven, no source code.
+# The final image is roughly 200 MB vs 500+ MB for a JDK-based image.
+#
+# The application runs as a non-root user (appuser, UID 1000) to reduce
+# the impact of any container escape or privilege escalation attempt.
+# =============================================================================
 FROM eclipse-temurin:17-jre-alpine
 
-# Set security headers & parameters
-ENV SPRING_OUTPUT_ANSI_ENABLED=ALWAYS \
-    JAVA_OPTS=""
+# curl is used by the HEALTHCHECK instruction below.
+# It is not present in the base image by default.
+RUN apk add --no-cache curl
 
 WORKDIR /app
 
-# Add a non-privileged user for security compliance (Avoid running containers as root!)
+# Create a dedicated non-root group and user for running the application.
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy the built jar file from the builder stage
+# Copy only the compiled JAR from the builder stage.
 COPY --from=builder /build/target/*.jar app.jar
 
-# Set ownership of files to our non-root user
+# Give ownership of the working directory to the app user.
 RUN chown -R appuser:appgroup /app
 
-# Expose port 8080 (standard Spring Boot port)
 EXPOSE 8080
 
-# Switch to the non-root user
 USER appuser
 
-# Healthcheck to verify the container state (Actuator endpoint)
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD wget -q --spider http://localhost:8080/actuator/health || exit 1
+# JAVA_OPTS can be passed at runtime via docker run -e JAVA_OPTS="-Xmx256m"
+# to tune the JVM without rebuilding the image.
+ENV JAVA_OPTS=""
 
-# Launch Spring Boot app
+# Poll the Spring Boot Actuator health endpoint every 30 seconds.
+# Three consecutive failures mark the container as unhealthy.
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]

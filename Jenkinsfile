@@ -2,132 +2,219 @@ pipeline {
     agent any
 
     environment {
-        // Docker Registry/Repository (Format: username/repository-name)
-        // REPLACE 'omarwazery/devops-showcase-app' with your own Docker Hub repository when cloning
-        DOCKER_REPO          = 'omarwazery/devops-showcase-app'
-        
-        // GitOps Manifest repository parameters (Format: github.com/username/manifests-repo.git)
-        // REPLACE 'omarwaziry/enterprise-gitops-manifests.git' with your own manifests repository
-        MANIFESTS_GIT_REPO   = 'github.com/omarwaziry/enterprise-gitops-manifests.git'
-        
-        // Tool identifiers in Jenkins
-        MAVEN_TOOL           = 'Maven3'
-        JDK_TOOL             = 'JDK17'
-        
-        // Credentials identifiers in Jenkins credential manager
-        DOCKER_HUB_CREDS_ID  = 'docker-hub-credentials'
-        GITHUB_CREDS_ID      = 'github-token'
-        SLACK_CHANNEL        = '#devops-alerts'
+        // -----------------------------------------------------------------------
+        // CONFIGURE THESE before running the pipeline for the first time.
+        // -----------------------------------------------------------------------
+
+        // Your Docker Hub repository in the format: dockerhub-username/repo-name
+        DOCKER_REPO = 'your-dockerhub-username/your-app-repo'
+
+        // Your GitOps manifests repository in the format: github.com/username/repo.git
+        // This is the repo where deployment.yaml lives (the CD side).
+        MANIFESTS_GIT_REPO = 'github.com/your-username/your-gitops-manifests-repo.git'
+
+        // The path inside the cloned manifests repo where deployment.yaml lives.
+        // If your file is at k8s/deployment.yaml, set this to k8s/deployment.yaml.
+        DEPLOYMENT_YAML_PATH = 'k8s/deployment.yaml'
+
+        // -----------------------------------------------------------------------
+        // These must match the names you give the tools in Jenkins → Manage Jenkins → Tools
+        // -----------------------------------------------------------------------
+        MAVEN_TOOL = 'Maven3'
+        JDK_TOOL   = 'JDK17'
+
+        // -----------------------------------------------------------------------
+        // These must match the credential IDs you create in Jenkins → Credentials
+        // -----------------------------------------------------------------------
+        DOCKER_HUB_CREDS_ID = 'docker-hub-credentials'
+        GITHUB_CREDS_ID     = 'github-token'
+
+        // Slack channel to post build notifications to (requires Slack plugin configured)
+        SLACK_CHANNEL = '#devops-alerts'
     }
 
     tools {
         maven "${MAVEN_TOOL}"
-        jdk "${JDK_TOOL}"
+        jdk   "${JDK_TOOL}"
     }
 
     options {
+        // Fail the build if it runs longer than 1 hour (catches hanging processes)
         timeout(time: 1, unit: 'HOURS')
+
+        // Keep only the last 10 builds to save disk space on the Jenkins agent
         buildDiscarder(logRotator(numToKeepStr: '10'))
+
+        // Prevent two builds of the same job running simultaneously
         disableConcurrentBuilds()
+
+        // Enable coloured console output (requires AnsiColor plugin)
         ansiColor('xterm')
     }
 
     stages {
+
+        // -----------------------------------------------------------------
+        // Stage 1: Clean the workspace and check out a fresh copy of the
+        // source code so every build starts from a known-clean state.
+        // -----------------------------------------------------------------
         stage('Initialize & Clean') {
             steps {
-                echo 'Cleaning workspace...'
                 deleteDir()
                 checkout scm
+                // Print the Maven version so the build log shows exactly
+                // which toolchain was used for this run.
                 sh 'mvn -version'
             }
         }
 
-        stage('Maven Build') {
+        // -----------------------------------------------------------------
+        // Stage 2: Compile the source code and run the full test suite,
+        // including JaCoCo code coverage instrumentation.
+        //
+        // We run tests HERE (before SonarQube) so the jacoco.xml coverage
+        // report exists by the time the scanner reads it in Stage 3.
+        // Running 'verify' instead of 'package' triggers the JaCoCo report
+        // goal that is bound to the verify lifecycle phase.
+        // -----------------------------------------------------------------
+        stage('Build & Test') {
             steps {
-                echo 'Compiling and packaging the Spring Boot application (skipping tests for now)...'
-                sh 'mvn clean package -DskipTests'
-            }
-        }
-
-        stage('SonarQube Static Code Analysis') {
-            steps {
-                echo 'Running SonarQube Quality Analysis...'
-                // 'SonarQubeServer' must match the system config configuration in Jenkins
-                withSonarQubeEnv('SonarQubeServer') {
-                    sh 'mvn sonar:sonar'
-                }
-            }
-        }
-
-        stage('Quality Gate Verification') {
-            steps {
-                echo 'Waiting for SonarQube Quality Gate webhook callback...'
-                timeout(time: 10, unit: 'MINUTES') {
-                    // Requires setting up a webhook in SonarQube pointing to Jenkins
-                    script {
-                        def qg = waitForQualityGate()
-                        if (qg.status != 'OK') {
-                            error "Pipeline aborted due to SonarQube Quality Gate failure: ${qg.status}"
-                        }
-                        echo "SonarQube Quality Gate passed successfully with status: ${qg.status}"
-                    }
-                }
-            }
-        }
-
-        stage('Execute Unit Tests') {
-            steps {
-                echo 'Executing unit and integration tests...'
-                sh 'mvn test'
+                sh 'mvn clean verify'
             }
             post {
                 always {
-                    // Record test results inside Jenkins reports
+                    // Publish JUnit test results to the Jenkins build page
                     junit 'target/surefire-reports/*.xml'
-                    // Publish JaCoCo coverage reports
-                    jacoco execPattern: 'target/jacoco.exec', classPattern: '**/classes', sourcePattern: 'src/main/java'
+
+                    // Publish JaCoCo coverage report to the Jenkins build page
+                    jacoco(
+                        execPattern:   'target/jacoco.exec',
+                        classPattern:  '**/classes',
+                        sourcePattern: 'src/main/java'
+                    )
                 }
             }
         }
 
-        stage('Docker Build & Push') {
+        // -----------------------------------------------------------------
+        // Stage 3: Static Application Security Testing (SAST) via SonarQube.
+        //
+        // 'SonarQubeServer' must match the name you set in:
+        //   Jenkins → Manage Jenkins → System → SonarQube servers
+        //
+        // The scanner reads the jacoco.xml produced in Stage 2, so coverage
+        // figures in SonarQube will be accurate.
+        // -----------------------------------------------------------------
+        stage('SonarQube Analysis') {
             steps {
-                echo "Building Docker image: ${DOCKER_REPO}:${BUILD_NUMBER}"
-                script {
-                    // Build container image using the custom Docker CLI inside Jenkins container (via host socket)
-                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDS_ID) {
-                        def image = docker.build("${DOCKER_REPO}:${BUILD_NUMBER}")
-                        image.push()
-                        image.push("latest")
+                withSonarQubeEnv('SonarQubeServer') {
+                    // -DskipTests so we do not run tests a second time;
+                    // the coverage report from Stage 2 is already on disk.
+                    sh 'mvn sonar:sonar -DskipTests'
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Stage 4: Block the pipeline until SonarQube sends its webhook
+        // callback with the Quality Gate result.
+        //
+        // If the gate fails (bugs, vulnerabilities, coverage below threshold)
+        // the pipeline aborts here. No image is built for failing code.
+        //
+        // Prerequisite: configure a webhook in SonarQube pointing to:
+        //   http://<jenkins-url>/sonarqube-webhook/
+        // -----------------------------------------------------------------
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 10, unit: 'MINUTES') {
+                    script {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            error "Build stopped: SonarQube Quality Gate status is '${qg.status}'. Fix the reported issues and re-run."
+                        }
                     }
                 }
             }
         }
+
+        // -----------------------------------------------------------------
+        // Stage 5: Build the Docker image using the multi-stage Dockerfile
+        // in this repository and push it to Docker Hub.
+        //
+        // Two tags are pushed:
+        //   :<BUILD_NUMBER>  — immutable, traceable, used for GitOps rollback
+        //   :latest          — floating convenience tag
+        // -----------------------------------------------------------------
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKER_HUB_CREDS_ID) {
+                        def image = docker.build("${DOCKER_REPO}:${BUILD_NUMBER}")
+                        image.push()
+                        image.push('latest')
+                    }
+                }
+            }
+        }
+
+        // -----------------------------------------------------------------
+        // Stage 6: Update the image tag in the GitOps manifests repository
+        // so Argo CD picks up the new version and deploys it to Kubernetes.
+        //
+        // How this works:
+        //   1. Clone the manifests repo using a GitHub Personal Access Token
+        //   2. Use sed to replace the image tag in deployment.yaml
+        //   3. Commit and push only if the file actually changed
+        //   4. The [skip ci] marker prevents this commit from re-triggering CI
+        //
+        // Security note: credentials are injected via withCredentials and
+        // written to a temporary .git-credentials file that is removed
+        // immediately after the clone. The password never appears in the
+        // Jenkins build log or process list.
+        // -----------------------------------------------------------------
         stage('GitOps Manifest Update') {
             steps {
-                echo 'Updating image tag in Manifest Repository for GitOps deployment...'
                 script {
-                    withCredentials([usernamePassword(credentialsId: "${GITHUB_CREDS_ID}", passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
-                        // Configure temporary Git options
-                        sh 'git config --global user.email "jenkins-ci@example.com"'
-                        sh 'git config --global user.name "Jenkins Automation Pipeline"'
-                        
-                        // Clone the manifests repository using the checkout token
-                        sh "git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@${MANIFESTS_GIT_REPO} temp_manifests"
-                        
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: "${GITHUB_CREDS_ID}",
+                            usernameVariable: 'GIT_USERNAME',
+                            passwordVariable: 'GIT_PASSWORD'
+                        )
+                    ]) {
+                        // Write credentials to a temporary store file so they
+                        // are never interpolated into a shell command string.
+                        sh """
+                            git config --global credential.helper store
+                            echo "https://\${GIT_USERNAME}:\${GIT_PASSWORD}@github.com" > \${HOME}/.git-credentials
+                        """
+
+                        sh "git clone https://${MANIFESTS_GIT_REPO} temp_manifests"
+
+                        // Remove the credentials file as soon as the clone is done.
+                        sh "rm -f \${HOME}/.git-credentials"
+                        sh "git config --global --unset credential.helper || true"
+
                         dir('temp_manifests') {
-                            // Update the image in deployment.yaml. Matches: "image: group/app:tag" and replaces the tag
-                            sh "sed -i 's|image: .*/devops-showcase-app:.*|image: ${DOCKER_REPO}:${BUILD_NUMBER}|g' deployment.yaml"
-                            
-                            // Check if changes exist before committing to avoid empty commits
-                            def status = sh(script: 'git status --porcelain', returnStdout: true).trim()
-                            if (status) {
-                                sh "git add deployment.yaml"
-                                sh "git commit -m 'GitOps Auto-Update: Bumped image tag to v${BUILD_NUMBER} [skip ci]'"
-                                sh "git push origin main"
-                                echo "Manifests repository updated successfully."
+                            // Scope git identity to this repo only, not the whole agent.
+                            sh 'git config user.email "jenkins-ci@pipeline.local"'
+                            sh 'git config user.name "Jenkins CI"'
+
+                            // Replace the image line in deployment.yaml.
+                            // The pattern matches any tag on the configured repo,
+                            // so it works regardless of what the previous tag was.
+                            sh "sed -i 's|image: ${DOCKER_REPO}:.*|image: ${DOCKER_REPO}:${BUILD_NUMBER}|g' ${DEPLOYMENT_YAML_PATH}"
+
+                            // Only commit if sed actually changed something.
+                            // This prevents empty commits if the tag is unchanged.
+                            def changes = sh(script: 'git status --porcelain', returnStdout: true).trim()
+                            if (changes) {
+                                sh "git add ${DEPLOYMENT_YAML_PATH}"
+                                sh "git commit -m 'ci: bump image tag to ${BUILD_NUMBER} [skip ci]'"
+                                sh 'git push origin main'
                             } else {
-                                echo "No changes detected in manifests repo. Skipping commit."
+                                echo 'Deployment manifest already has this image tag. Nothing to commit.'
                             }
                         }
                     }
@@ -138,20 +225,25 @@ pipeline {
 
     post {
         success {
-            echo 'Pipeline completed successfully. Sending Slack notification...'
+            echo "Pipeline finished successfully. Build #${BUILD_NUMBER} is deployed."
+            // Uncomment and configure the Slack plugin to enable notifications.
             // slackSend(
             //     channel: "${SLACK_CHANNEL}",
-            //     color: '#00FF00',
-            //     message: "SUCCESSFUL: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] completed successfully.\nView changes: ${env.BUILD_URL}"
+            //     color: '#36a64f',
+            //     message: "PASSED: ${JOB_NAME} #${BUILD_NUMBER} — <${BUILD_URL}|View build>"
             // )
         }
         failure {
-            echo 'Pipeline failed. Sending alerts...'
+            echo "Pipeline failed at build #${BUILD_NUMBER}. Check the console output for details."
             // slackSend(
             //     channel: "${SLACK_CHANNEL}",
-            //     color: '#FF0000',
-            //     message: "FAILED: Job '${env.JOB_NAME}' [Build #${env.BUILD_NUMBER}] failed during build stages.\nVerify error logs at: ${env.BUILD_URL}"
+            //     color: '#cc0000',
+            //     message: "FAILED: ${JOB_NAME} #${BUILD_NUMBER} — <${BUILD_URL}|View build>"
             // )
+        }
+        cleanup {
+            // Always remove the cloned manifests directory to keep the workspace clean.
+            sh 'rm -rf temp_manifests || true'
         }
     }
 }
